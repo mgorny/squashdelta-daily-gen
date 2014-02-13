@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+shopt -s nullglob
 set -e -x
 
 mirrordir=fill-me-in-please
@@ -11,22 +12,32 @@ tempdir=$(mktemp -d)
 trap "rm -r ${tempdir}" EXIT
 
 snapshots=( "${mirrordir}"/*.sqfs )
-yesterdaysnap=${snapshots[-1]}
-yesterday=${yesterdaysnap#*/portage-}
-yesterday=${yesterday%.sqfs}
 
-today=$(date --date="${yesterday} tomorrow" +%Y%m%d)
+if [[ ${snapshots[@]} ]]; then
+	yesterdaysnap=${snapshots[-1]}
+	yesterday=${yesterdaysnap#*/portage-}
+	yesterday=${yesterday%.sqfs}
 
-cat - Makefile.in > Makefile <<-_EOF_
-	mirrordir = ${mirrordir}
-	revdeltadir = ${revdeltadir}
-	repodir = ${repodir}
-	tempdir = ${tempdir}
+	today=$(date --date="${yesterday} tomorrow" +%Y%m%d)
+else
+	# when there's no yesterday, trust in the clock
+	today=$(date +%Y%m%d)
+fi
 
-	today = ${today}
-	yesterday = ${yesterday}
+todaysnap=${mirrordir}/portage-${today}.sqfs
 
-_EOF_
+# take today's snapshot
+mksquashfs "${repodir}" "${tempdir}"/portage-${today}.sqfs \
+	-comp lzo -no-xattrs -force-uid portage -force-gid portage
+mv "${tempdir}"/portage-${today}.sqfs "${mirrordir}"/
+
+[[ ! ${yesterday} ]] && exit 0
+
+# create rev-delta from today to yesterday
+squashdelta "${todaysnap}" "${yesterdaysnap}" \
+	"${revdeltadir}"/portage-${today}-${yesterday}.sqdelta
+
+# create deltas from previous days to today
 
 revdeltas=( "${revdeltadir}"/*.sqdelta )
 for (( i = ${#revdeltas[@]} - 1; i >= 0; i-- )); do
@@ -37,32 +48,29 @@ for (( i = ${#revdeltas[@]} - 1; i >= 0; i-- )); do
 	rdate=${rdate#*-}
 
 	# ldate = newer, rdate = older
-	if [[ ${ldate} == ${yesterday} ]]; then
-		lsnap='${yesterdaysnap}'
+
+	if [[ ${rdate} == ${yesterday} ]]; then
+		# we have yesterday's snapshot already, so use it
+		rsnap=${yesterdaysnap}
 	else
-		lsnap="\${tempdir}/portage-${ldate}.sqfs"
+		# otherwise, we need to reconstruct the snap
+		if [[ ${ldate} == ${yesterday} ]]; then
+			lsnap=${yesterdaysnap}
+		else
+			lsnap=${tempdir}/portage-${ldate}.sqfs
+		fi
+		rsnap=${tempdir}/portage-${rdate}.sqfs
+
+		squashmerge "${lsnap}" "${r}" "${rsnap}"
+		rm "${lsnap}"
 	fi
-	rsnap="\${tempdir}/portage-${rdate}.sqfs"
 
-	cat >> Makefile <<_EOF_
-all: \${mirrordir}/portage-${ldate}-${today}.sqdelta
-\${mirrordir}/portage-${ldate}-${today}.sqdelta: \${todaysnap}
-	@while [ ! -f \${tempdir}/portage-${ldate}.stamp ]; do sleep 0.3; done
-	squashmerge ${lsnap} \${revdeltadir}/portage-${ldate}-${rdate}.sqdelta ${rsnap}
-	touch \${tempdir}/portage-${rdate}.stamp
-	squashdelta ${lsnap} \${todaysnap} \$@
-	rm ${lsnap}
-
-_EOF_
+	squashdelta "${rsnap}" "${todaysnap}" "${tempdir}"/portage-${rdate}-${today}.sqdelta
+	mv "${tempdir}"/portage-${rdate}-${today}.sqdelta "${mirrordir}"/
 done
 
-# last one
-cat >> Makefile <<_EOF_
-all: \${mirrordir}/portage-${rdate}-${today}.sqdelta
-\${mirrordir}/portage-${rdate}-${today}.sqdelta: \${todaysnap}
-	@while [ ! -f \${tempdir}/portage-${rdate}.stamp ]; do sleep 0.3; done
-	squashdelta ${rsnap} \${todaysnap} \$@
-	rm ${rsnap}
-_EOF_
+# remove the last snapshot used
+rm "${rsnap}"
 
-make ${MAKEOPTS:--j2}
+# finally, clean up the old deltas
+rm -f "${mirrordir}"/portage-*-${yesterday}.sqdelta
