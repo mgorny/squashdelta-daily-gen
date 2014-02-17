@@ -7,6 +7,9 @@ mirrordir=fill-me-in-please
 revdeltadir=fill-me-in-please
 repodir=fill-me-in-please
 
+algo='-comp lzo -Xcompression-level 4'
+mksquashfs_options="-no-xattrs -force-uid portage -force-gid portage ${algo}"
+
 [[ -d ${mirrordir} ]]
 [[ -d ${revdeltadir} ]]
 [[ -d ${repodir} ]]
@@ -36,7 +39,7 @@ todaysnap=${mirrordir}/${reponame}-${today}.sqfs
 
 # take today's snapshot
 mksquashfs "${repodir}" "${tempdir}"/${reponame}-${today}.sqfs \
-	-comp lzo -no-xattrs -force-uid portage -force-gid portage
+	${mksquashfs_options}
 mv "${tempdir}"/${reponame}-${today}.sqfs "${mirrordir}"/
 
 [[ ! ${yesterday} ]] && exit 0
