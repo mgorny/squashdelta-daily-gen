@@ -85,3 +85,9 @@ rm "${rsnap}"
 
 # finally, clean up the old deltas
 rm -f "${mirrordir}"/${reponame}-*-${yesterday}.sqdelta
+
+# create checksums for snapshot and deltas
+cd "${mirrordir}"
+sha512sum *.sqfs *.sqdelta | \
+	gpg --yes --clearsign --output sha512sum.txt.tmp -
+mv sha512sum.txt.tmp sha512sum.txt
