@@ -1,11 +1,47 @@
 #!/usr/bin/env bash
 
+# Copyright (c) 2014-2015, Michał Górny
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice,
+#    this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
 shopt -s nullglob
 set -e -x
 
-mirrordir=fill-me-in-please
-revdeltadir=fill-me-in-please
-repodir=fill-me-in-please
+source /usr/local/bin/mastermirror/rsync-gen.vars
+
+# Final deltas get mirrored out here.
+mirrordir=${UPLOAD}/squashfs
+# We keep deltas around here to generate larger deltas, but may not be mirrored.
+revdeltadir=${BASE}/squashfs-tmp
+# FINALDIR is where the master gentoo-x86 copy of the tree is located.
+repodir=${FINALDIR}
+
+# GPG key ID to sign with
+signkeyid="96D8BF6D"
+
+if [[ ! -d $revdeltadir ]]; then
+	mkdir -p "$revdeltadir"
+fi
 
 algo='-comp lzo -Xcompression-level 4'
 mksquashfs_options="-no-xattrs -force-uid portage -force-gid portage ${algo}"
@@ -49,7 +85,6 @@ squashdelta "${todaysnap}" "${yesterdaysnap}" \
 	"${revdeltadir}"/${reponame}-${today}-${yesterday}.sqdelta
 
 # create deltas from previous days to today
-
 revdeltas=( "${revdeltadir}"/*.sqdelta )
 for (( i = ${#revdeltas[@]} - 1; i >= 0; i-- )); do
 	r=${revdeltas[${i}]}
@@ -89,5 +124,6 @@ rm -f "${mirrordir}"/${reponame}-*-${yesterday}.sqdelta
 # create checksums for snapshot and deltas
 cd "${mirrordir}"
 sha512sum *.sqfs *.sqdelta | \
-	gpg --yes --clearsign --output sha512sum.txt.tmp -
+	gpg --yes -u "${signkeyid}" --clearsign \
+	--comment "Date: ${today}" --output sha512sum.txt.tmp -
 mv sha512sum.txt.tmp sha512sum.txt
