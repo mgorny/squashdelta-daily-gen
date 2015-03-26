@@ -64,13 +64,9 @@ if [[ ${snapshots[@]} ]]; then
 	yesterdaysnap=${snapshots[-1]}
 	yesterday=${yesterdaysnap#*/${reponame}-}
 	yesterday=${yesterday%.sqfs}
-
-	today=$(date --date="${yesterday} tomorrow" +%Y%m%d)
-else
-	# when there's no yesterday, trust in the clock
-	today=$(date +%Y%m%d)
 fi
 
+today=$(date +%Y%m%d)
 todaysnap=${mirrordir}/${reponame}-${today}.sqfs
 
 # take today's snapshot
