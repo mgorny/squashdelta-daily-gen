@@ -39,6 +39,9 @@ repodir=${FINALDIR}
 # GPG key ID to sign with
 signkeyid="96D8BF6D"
 
+# Deltas to keep before cleanup
+cleanupno=180
+
 if [[ ! -d $revdeltadir ]]; then
 	mkdir -p "$revdeltadir"
 fi
@@ -82,7 +85,10 @@ squashdelta "${todaysnap}" "${yesterdaysnap}" \
 
 # create deltas from previous days to today
 revdeltas=( "${revdeltadir}"/*.sqdelta )
+lastdelta=$(( ${#revdeltas[@]} - ${cleanupno} ))
 for (( i = ${#revdeltas[@]} - 1; i >= 0; i-- )); do
+	[[ ${i} == ${lastdelta} ]] && break
+
 	r=${revdeltas[${i}]}
 	ldate=${r#*/${reponame}-}
 	rdate=${ldate%.sqdelta}
