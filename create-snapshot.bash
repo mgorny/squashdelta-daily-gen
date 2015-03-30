@@ -87,7 +87,7 @@ squashdelta "${todaysnap}" "${yesterdaysnap}" \
 revdeltas=( "${revdeltadir}"/*.sqdelta )
 lastdelta=$(( ${#revdeltas[@]} - ${cleanupno} ))
 for (( i = ${#revdeltas[@]} - 1; i >= 0; i-- )); do
-	[[ ${i} == ${lastdelta} ]] && break
+	[[ ${i} != ${lastdelta} ]] || break
 
 	r=${revdeltas[${i}]}
 	ldate=${r#*/${reponame}-}
