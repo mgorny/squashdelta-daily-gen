@@ -77,51 +77,51 @@ mksquashfs "${repodir}" "${tempdir}"/${reponame}-${today}.sqfs \
 	${mksquashfs_options}
 mv "${tempdir}"/${reponame}-${today}.sqfs "${mirrordir}"/
 
-[[ ! ${yesterday} ]] && exit 0
+if [[ ${yesterday} ]]; then
+	# create rev-delta from today to yesterday
+	squashdelta "${todaysnap}" "${yesterdaysnap}" \
+		"${revdeltadir}"/${reponame}-${today}-${yesterday}.sqdelta
 
-# create rev-delta from today to yesterday
-squashdelta "${todaysnap}" "${yesterdaysnap}" \
-	"${revdeltadir}"/${reponame}-${today}-${yesterday}.sqdelta
+	# create deltas from previous days to today
+	revdeltas=( "${revdeltadir}"/*.sqdelta )
+	lastdelta=$(( ${#revdeltas[@]} - ${cleanupno} ))
+	for (( i = ${#revdeltas[@]} - 1; i >= 0; i-- )); do
+		[[ ${i} != ${lastdelta} ]] || break
 
-# create deltas from previous days to today
-revdeltas=( "${revdeltadir}"/*.sqdelta )
-lastdelta=$(( ${#revdeltas[@]} - ${cleanupno} ))
-for (( i = ${#revdeltas[@]} - 1; i >= 0; i-- )); do
-	[[ ${i} != ${lastdelta} ]] || break
+		r=${revdeltas[${i}]}
+		ldate=${r#*/${reponame}-}
+		rdate=${ldate%.sqdelta}
+		ldate=${ldate%-*}
+		rdate=${rdate#*-}
 
-	r=${revdeltas[${i}]}
-	ldate=${r#*/${reponame}-}
-	rdate=${ldate%.sqdelta}
-	ldate=${ldate%-*}
-	rdate=${rdate#*-}
+		# ldate = newer, rdate = older
 
-	# ldate = newer, rdate = older
-
-	if [[ ${rdate} == ${yesterday} ]]; then
-		# we have yesterday's snapshot already, so use it
-		rsnap=${yesterdaysnap}
-	else
-		# otherwise, we need to reconstruct the snap
-		if [[ ${ldate} == ${yesterday} ]]; then
-			lsnap=${yesterdaysnap}
+		if [[ ${rdate} == ${yesterday} ]]; then
+			# we have yesterday's snapshot already, so use it
+			rsnap=${yesterdaysnap}
 		else
-			lsnap=${tempdir}/${reponame}-${ldate}.sqfs
+			# otherwise, we need to reconstruct the snap
+			if [[ ${ldate} == ${yesterday} ]]; then
+				lsnap=${yesterdaysnap}
+			else
+				lsnap=${tempdir}/${reponame}-${ldate}.sqfs
+			fi
+			rsnap=${tempdir}/${reponame}-${rdate}.sqfs
+
+			squashmerge "${lsnap}" "${r}" "${rsnap}"
+			rm "${lsnap}"
 		fi
-		rsnap=${tempdir}/${reponame}-${rdate}.sqfs
 
-		squashmerge "${lsnap}" "${r}" "${rsnap}"
-		rm "${lsnap}"
-	fi
+		squashdelta "${rsnap}" "${todaysnap}" "${tempdir}"/${reponame}-${rdate}-${today}.sqdelta
+		mv "${tempdir}"/${reponame}-${rdate}-${today}.sqdelta "${mirrordir}"/
+	done
 
-	squashdelta "${rsnap}" "${todaysnap}" "${tempdir}"/${reponame}-${rdate}-${today}.sqdelta
-	mv "${tempdir}"/${reponame}-${rdate}-${today}.sqdelta "${mirrordir}"/
-done
+	# remove the last snapshot used
+	rm "${rsnap}"
 
-# remove the last snapshot used
-rm "${rsnap}"
-
-# finally, clean up the old deltas
-rm -f "${mirrordir}"/${reponame}-*-${yesterday}.sqdelta
+	# finally, clean up the old deltas
+	rm -f "${mirrordir}"/${reponame}-*-${yesterday}.sqdelta
+fi
 
 # create checksums for snapshot and deltas
 cd "${mirrordir}"
