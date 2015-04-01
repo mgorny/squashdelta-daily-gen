@@ -37,7 +37,7 @@ revdeltadir=${BASE}/squashfs-tmp
 repodir=${FINALDIR}
 
 # GPG key ID to sign with
-signkeyid="96D8BF6D"
+signkeyid="DCD05B71EAB94199527F44ACDB6B8C1F96D8BF6D"
 
 # Deltas to keep before cleanup
 cleanupno=180
