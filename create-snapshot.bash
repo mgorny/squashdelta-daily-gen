@@ -74,6 +74,8 @@ fi
 today=$(date --date="$(<"${repodir}"/metadata/timestamp.chk ) - 6 hours" +%Y%m%d)
 todaysnap=${mirrordir}/${reponame}-${today}.sqfs
 
+[[ ! -f ${todaysnap} ]]
+
 # take today's snapshot
 mksquashfs "${repodir}" "${tempdir}"/${reponame}-${today}.sqfs \
 	${mksquashfs_options}
