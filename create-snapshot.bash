@@ -69,7 +69,9 @@ if [[ ${snapshots[@]} ]]; then
 	yesterday=${yesterday%.sqfs}
 fi
 
-today=$(date +%Y%m%d)
+# get date from the repo, move it few hours back to ensure
+# it is 'previous day', alike .tar snapshots
+today=$(date --date="$(<"${repodir}"/metadata/timestamp.chk ) - 6 hours" +%Y%m%d)
 todaysnap=${mirrordir}/${reponame}-${today}.sqfs
 
 # take today's snapshot
