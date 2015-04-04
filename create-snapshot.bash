@@ -27,13 +27,17 @@
 shopt -s nullglob
 set -e -x
 
+# == config ==
+# filled with gentoo-specific details, change at will
+
 source /usr/local/bin/mastermirror/rsync-gen.vars
 
-# Final deltas get mirrored out here.
+# Final snapshots and deltas get mirrored out here.
 mirrordir=${UPLOAD}/squashfs
-# We keep deltas around here to generate larger deltas, but may not be mirrored.
+# We keep reverse deltas around here to allow handling past snapshots
+# without having to keep them in full size.
 revdeltadir=${BASE}/squashfs-tmp
-# FINALDIR is where the master gentoo-x86 copy of the tree is located.
+# This is where the master (unpacked) copy of the repository is located.
 repodir=${FINALDIR}
 
 # GPG key ID to sign with
@@ -41,6 +45,8 @@ signkeyid="DCD05B71EAB94199527F44ACDB6B8C1F96D8BF6D"
 
 # Deltas to keep before cleanup
 cleanupno=180
+
+# == config ends here ==
 
 if [[ ! -d ${revdeltadir} ]]; then
 	mkdir -p "${revdeltadir}"
