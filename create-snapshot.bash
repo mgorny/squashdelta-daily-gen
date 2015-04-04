@@ -127,8 +127,13 @@ if [[ ${yesterday} ]]; then
 	rm -f "${mirrordir}"/${reponame}-*-${yesterday}.sqdelta
 fi
 
-# create checksums for snapshot and deltas
+# == here ${PWD} becomes ${mirrordir} ==
 cd "${mirrordir}"
+
+# create convenience -current symlink, for direct fetching
+ln -s -f "${reponame}-${today}.sqfs" "${reponame}-current.sqfs"
+
+# create checksums for snapshot and deltas
 sha512sum *.sqfs *.sqdelta | \
 	gpg --yes -u "${signkeyid}" --clearsign \
 	--comment "Date: ${today}" --output sha512sum.txt.tmp -
