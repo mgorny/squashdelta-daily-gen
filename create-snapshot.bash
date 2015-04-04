@@ -42,12 +42,15 @@ signkeyid="DCD05B71EAB94199527F44ACDB6B8C1F96D8BF6D"
 # Deltas to keep before cleanup
 cleanupno=180
 
-if [[ ! -d $revdeltadir ]]; then
-	mkdir -p "$revdeltadir"
+if [[ ! -d ${revdeltadir} ]]; then
+	mkdir -p "${revdeltadir}"
 fi
 
-algo='-comp lzo -Xcompression-level 4'
-mksquashfs_options="-no-xattrs -force-uid portage -force-gid portage ${algo}"
+algo=( -comp lzo -Xcompression-level 4 )
+mksquashfs_options=(
+	-no-xattrs -force-uid portage -force-gid portage
+	"${algo[@]}"
+)
 
 [[ -d ${mirrordir} ]]
 [[ -d ${revdeltadir} ]]
@@ -59,7 +62,7 @@ reponame=$(<"${repodir}"/profiles/repo_name)
 
 tempdir=$(mktemp -d)
 
-trap "rm -r ${tempdir}" EXIT
+trap 'rm -r "${tempdir}"' EXIT
 
 snapshots=( "${mirrordir}"/${reponame}-*.sqfs )
 
@@ -77,18 +80,18 @@ todaysnap=${mirrordir}/${reponame}-${today}.sqfs
 [[ ! -f ${todaysnap} ]]
 
 # take today's snapshot
-mksquashfs "${repodir}" "${tempdir}"/${reponame}-${today}.sqfs \
-	${mksquashfs_options}
-mv "${tempdir}"/${reponame}-${today}.sqfs "${mirrordir}"/
+mksquashfs "${repodir}" "${tempdir}/${reponame}-${today}.sqfs" \
+	"${mksquashfs_options[@]}"
+mv "${tempdir}/${reponame}-${today}.sqfs" "${mirrordir}/"
 
 if [[ ${yesterday} ]]; then
 	# create rev-delta from today to yesterday
 	squashdelta "${todaysnap}" "${yesterdaysnap}" \
-		"${revdeltadir}"/${reponame}-${today}-${yesterday}.sqdelta
+		"${revdeltadir}/${reponame}-${today}-${yesterday}.sqdelta"
 
 	# create deltas from previous days to today
 	revdeltas=( "${revdeltadir}"/*.sqdelta )
-	lastdelta=$(( ${#revdeltas[@]} - ${cleanupno} ))
+	lastdelta=$(( ${#revdeltas[@]} - cleanupno ))
 	for (( i = ${#revdeltas[@]} - 1; i >= 0; i-- )); do
 		[[ ${i} != ${lastdelta} ]] || break
 
@@ -100,12 +103,12 @@ if [[ ${yesterday} ]]; then
 
 		# ldate = newer, rdate = older
 
-		if [[ ${rdate} == ${yesterday} ]]; then
+		if [[ ${rdate} == "${yesterday}" ]]; then
 			# we have yesterday's snapshot already, so use it
 			rsnap=${yesterdaysnap}
 		else
 			# otherwise, we need to reconstruct the snap
-			if [[ ${ldate} == ${yesterday} ]]; then
+			if [[ ${ldate} == "${yesterday}" ]]; then
 				lsnap=${yesterdaysnap}
 			else
 				lsnap=${tempdir}/${reponame}-${ldate}.sqfs
@@ -116,15 +119,15 @@ if [[ ${yesterday} ]]; then
 			rm "${lsnap}"
 		fi
 
-		squashdelta "${rsnap}" "${todaysnap}" "${tempdir}"/${reponame}-${rdate}-${today}.sqdelta
-		mv "${tempdir}"/${reponame}-${rdate}-${today}.sqdelta "${mirrordir}"/
+		squashdelta "${rsnap}" "${todaysnap}" "${tempdir}/${reponame}-${rdate}-${today}.sqdelta"
+		mv "${tempdir}/${reponame}-${rdate}-${today}.sqdelta" "${mirrordir}/"
 	done
 
 	# remove the last snapshot used
 	rm "${rsnap}"
 
 	# finally, clean up the old deltas
-	rm -f "${mirrordir}"/${reponame}-*-${yesterday}.sqdelta
+	rm -f "${mirrordir}/${reponame}"-*-"${yesterday}.sqdelta"
 fi
 
 # == here ${PWD} becomes ${mirrordir} ==
@@ -134,7 +137,7 @@ cd "${mirrordir}"
 ln -s -f "${reponame}-${today}.sqfs" "${reponame}-current.sqfs"
 
 # create checksums for snapshot and deltas
-sha512sum *.sqfs *.sqdelta | \
+sha512sum -- *.sqfs *.sqdelta | \
 	gpg --yes -u "${signkeyid}" --clearsign \
 	--comment "current=${today}" --output sha512sum.txt.tmp -
 mv sha512sum.txt.tmp sha512sum.txt
