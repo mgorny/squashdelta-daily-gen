@@ -145,5 +145,5 @@ ln -s -f "${reponame}-${today}.sqfs" "${reponame}-current.sqfs"
 # create checksums for snapshot and deltas
 sha512sum -- *.sqfs *.sqdelta | \
 	gpg --yes -u "${signkeyid}" --clearsign \
-	--comment "current=${today}" --output sha512sum.txt.tmp -
+	--comment "Current: gentoo-${today}" --output sha512sum.txt.tmp -
 mv sha512sum.txt.tmp sha512sum.txt
