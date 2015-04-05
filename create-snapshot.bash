@@ -74,6 +74,9 @@ snapshots=( "${mirrordir}"/${reponame}-*.sqfs )
 
 if [[ ${snapshots[@]} ]]; then
 	yesterdaysnap=${snapshots[-1]}
+	if [[ ${yesterdaysnap} == *-current.sqfs ]]; then
+		yesterdaysnap=$(readlink -m "${yesterdaysnap}")
+	fi
 	yesterday=${yesterdaysnap#*/${reponame}-}
 	yesterday=${yesterday%.sqfs}
 fi
